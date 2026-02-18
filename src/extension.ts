@@ -293,11 +293,9 @@ class CopilotInsightsViewProvider implements vscode.WebviewViewProvider {
     );
 
     if (premiumQuota && !premiumQuota.unlimited) {
-      const percentRemaining = Math.round(
-        (premiumQuota.remaining / premiumQuota.entitlement) * 100
-      );
-      const used = premiumQuota.entitlement - premiumQuota.remaining;
-      const percentUsed = Math.round((used / premiumQuota.entitlement) * 100);
+      const percentRemaining = parseFloat(((premiumQuota.quota_remaining / premiumQuota.entitlement) * 100).toFixed(1));
+      const used = premiumQuota.entitlement - premiumQuota.quota_remaining;
+      const percentUsed = parseFloat(((used / premiumQuota.entitlement) * 100).toFixed(1));
       const statusBadge = this._getStatusBadge(percentRemaining);
 
       // Get the configured style and toggles
@@ -372,11 +370,9 @@ class CopilotInsightsViewProvider implements vscode.WebviewViewProvider {
     );
 
     if (premiumQuota && !premiumQuota.unlimited) {
-      const percentRemaining = Math.round(
-        (premiumQuota.remaining / premiumQuota.entitlement) * 100
-      );
-      const used = premiumQuota.entitlement - premiumQuota.remaining;
-      const percentUsed = Math.round((used / premiumQuota.entitlement) * 100);
+      const percentRemaining = parseFloat(((premiumQuota.quota_remaining / premiumQuota.entitlement) * 100).toFixed(1));
+      const used = premiumQuota.entitlement - premiumQuota.quota_remaining;
+      const percentUsed = parseFloat(((used / premiumQuota.entitlement) * 100).toFixed(1));
 
       // Get the configured style
       const style = vscode.workspace
@@ -1262,11 +1258,10 @@ class CopilotInsightsViewProvider implements vscode.WebviewViewProvider {
 					`;
           }
 
-          const used = quota.entitlement - quota.remaining;
-          const percentUsed = Math.round((used / quota.entitlement) * 100);
-          const percentRemaining = Math.round(
-            (quota.remaining / quota.entitlement) * 100
-          );
+          const used = quota.entitlement - quota.quota_remaining;
+          const percentUsed = parseFloat(((used / quota.entitlement) * 100).toFixed(1));
+          const percentRemaining = parseFloat(((quota.quota_remaining / quota.entitlement) * 100).toFixed(1));
+          const fmtQuota = (n: number): string => String(parseFloat(n.toFixed(2)));
           const statusBadge = this._getStatusBadge(percentRemaining);
           const mood = this._getMood(percentRemaining);
           const isOverQuota = quota.remaining < 0;
@@ -1455,12 +1450,12 @@ class CopilotInsightsViewProvider implements vscode.WebviewViewProvider {
                 ? `<span class="stat-label" title="Amount over your monthly quota" style="color: var(--vscode-charts-red);">Over by:</span>
 								   <span class="stat-value" style="color: var(--vscode-charts-red);">${overageAmount}</span>`
                 : `<span class="stat-label" title="Calls available until the reset date">Remaining:</span>
-								   <span class="stat-value">${quota.remaining}</span>`
+								   <span class="stat-value">${fmtQuota(quota.quota_remaining)}</span>`
               }
 							</div>
 							<div class="stat">
 								<span class="stat-label" title="Calls made since the last reset">Used:</span>
-								<span class="stat-value">${used}</span>
+								<span class="stat-value">${fmtQuota(used)}</span>
 							</div>
 							<div class="stat">
 								<span class="stat-label" title="Total calls allowed in this period">Total:</span>
@@ -1984,7 +1979,9 @@ class CopilotInsightsViewProvider implements vscode.WebviewViewProvider {
 
     const isOverQuota = premiumQuota.remaining < 0;
     const overageAmount = isOverQuota ? Math.abs(premiumQuota.remaining) : 0;
-    
+    const used = premiumQuota.entitlement - premiumQuota.quota_remaining;
+    const fmtQuota = (n: number): string => String(parseFloat(n.toFixed(2)));
+
     // Clamp displayPercent for visual components (0-100 range)
     const rawDisplayPercent = progressBarMode === "used" ? percentUsed : percentRemaining;
     const displayPercent = Math.max(0, Math.min(100, rawDisplayPercent));
@@ -1998,8 +1995,8 @@ class CopilotInsightsViewProvider implements vscode.WebviewViewProvider {
       ? (isOverQuota
         ? `+${overageAmount}/${premiumQuota.entitlement}`
         : (progressBarMode === "used"
-          ? `${percentUsed}/${premiumQuota.entitlement}`
-          : `${premiumQuota.remaining}/${premiumQuota.entitlement}`))
+          ? `${fmtQuota(used)}/${premiumQuota.entitlement}`
+          : `${fmtQuota(premiumQuota.quota_remaining)}/${premiumQuota.entitlement}`))
       : "";
 
     // If visual indicator is disabled, return only name + quota (no style-specific formatting or percentage)
