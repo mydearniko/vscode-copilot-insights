@@ -1,5 +1,19 @@
 # Change Log
 
+# [3.7.0] - 2026-03-09
+
+### Added
+- **JSON Clipboard Export**: Copy the raw Copilot Insights payload as formatted JSON directly from the sidebar.
+
+## [3.6.0] - 2026-02-05
+
+### Added
+- **Overage Cost Estimation**: Premium quota cards now show estimated overage cost when your plan allows usage beyond the included quota.
+- **Quota Exceeded Summary**: Over-quota states now show a focused summary with overage amount, total used, and reset timing.
+
+### Changed
+- Improved overage messaging so permitted overages and blocked premium usage are easier to distinguish.
+
 # [3.5.0] - 2026-02-04
 
 ### Added

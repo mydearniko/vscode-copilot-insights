@@ -163,6 +163,14 @@ class CopilotInsightsViewProvider implements vscode.WebviewViewProvider {
             );
           }
           break;
+        case "copyJsonToClipboard":
+          if (message.data) {
+            await vscode.env.clipboard.writeText(JSON.stringify(message.data, null, 2));
+            vscode.window.showInformationMessage(
+              "Copilot Insights JSON copied to clipboard"
+            );
+          }
+          break;
       }
     });
 
@@ -1950,6 +1958,11 @@ class CopilotInsightsViewProvider implements vscode.WebviewViewProvider {
 					Copy Summary to Clipboard
 				</button>
 
+				<button id="copyJsonButton" class="copy-button" style="margin-top: 4px; background-color: var(--vscode-button-secondaryBackground); color: var(--vscode-button-secondaryForeground);">
+					<span class="codicon codicon-json"></span>
+					Copy JSON to Clipboard
+				</button>
+
 				<div class="last-updated" style="text-align: center; margin-top: 8px;">
 					Last fetched: ${timeSince}
 				</div>
@@ -1961,6 +1974,13 @@ class CopilotInsightsViewProvider implements vscode.WebviewViewProvider {
 					document.getElementById('copyButton').addEventListener('click', () => {
 						vscode.postMessage({
 							command: 'copyToClipboard',
+							data: data
+						});
+					});
+
+					document.getElementById('copyJsonButton').addEventListener('click', () => {
+						vscode.postMessage({
+							command: 'copyJsonToClipboard',
 							data: data
 						});
 					});
