@@ -56,7 +56,8 @@
         {
           "type": "webview",
           "id": "copilotInsights.sidebarView",
-          "name": "Insights"
+          "name": "Insights",
+          "icon": "$(graph)"
         }
       ]
     },
@@ -173,7 +174,8 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "test-vsix": "vsce package && code --install-extension ./vscode-copilot-insights-*.vsix"
   },
   "devDependencies": {
     "@types/vscode": "^1.107.0",
