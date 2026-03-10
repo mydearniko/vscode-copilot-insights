@@ -1,259 +1,203 @@
 <p align="center">
-	<img src="img/logo.png" width="140" alt="Copilot Insights logo" />
+  <img src="img/logo.png" width="140" alt="Copilot Insights logo" />
 </p>
 
-<h1 align="center">Copilot Insights (VS Code Extension)</h1>
+<h1 align="center">Copilot Insights</h1>
 
 <p align="center">
-	Understand your GitHub Copilot plan and quotas at a glance, not productivity or usage analytics — in the VS Code sidebar and status bar.
+  See your GitHub Copilot plan, quotas, reset window, and premium usage trends directly inside VS Code.
 </p>
 
 <p align="center">
-	<a href="https://marketplace.visualstudio.com/items?itemName=emanuelebartolesi.vscode-copilot-insights">
-		<img src="https://img.shields.io/visual-studio-marketplace/v/emanuelebartolesi.vscode-copilot-insights?style=for-the-badge&logo=visual-studio-code&label=VS%20Marketplace" alt="Visual Studio Marketplace Version" />
-	</a>
-	<a href="https://marketplace.visualstudio.com/items?itemName=emanuelebartolesi.vscode-copilot-insights">
-		<img src="https://img.shields.io/visual-studio-marketplace/d/emanuelebartolesi.vscode-copilot-insights?style=for-the-badge&logo=visual-studio-code" alt="Downloads" />
-	</a>
-	<a href="https://marketplace.visualstudio.com/items?itemName=emanuelebartolesi.vscode-copilot-insights">
-		<img src="https://img.shields.io/visual-studio-marketplace/r/emanuelebartolesi.vscode-copilot-insights?style=for-the-badge&logo=visual-studio-code" alt="Rating" />
-	</a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=emanuelebartolesi.vscode-copilot-insights">
+    <img src="https://img.shields.io/visual-studio-marketplace/v/emanuelebartolesi.vscode-copilot-insights?style=for-the-badge&logo=visual-studio-code&label=VS%20Marketplace" alt="Visual Studio Marketplace Version" />
+  </a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=emanuelebartolesi.vscode-copilot-insights">
+    <img src="https://img.shields.io/visual-studio-marketplace/d/emanuelebartolesi.vscode-copilot-insights?style=for-the-badge&logo=visual-studio-code" alt="Downloads" />
+  </a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=emanuelebartolesi.vscode-copilot-insights">
+    <img src="https://img.shields.io/visual-studio-marketplace/r/emanuelebartolesi.vscode-copilot-insights?style=for-the-badge&logo=visual-studio-code" alt="Rating" />
+  </a>
 </p>
 
----
+## Overview
 
-## What it does
+Copilot Insights gives you a fast, local view of the quota and entitlement data already associated with your GitHub Copilot account.
 
-Copilot Insights surfaces your GitHub Copilot entitlement/quota information and presents it in a VS Code-friendly UI:
+It focuses on operational visibility, not team analytics. The extension helps answer practical questions such as:
 
-- Sidebar view with quota cards and pacing guidance
-- Status bar indicator for Premium Interactions (remaining / total + %)
-- One-time warning when Premium usage exceeds 85% of your monthly quota
-- Auto-refresh when the view becomes visible
-- Manual refresh button in the view title bar
-- Settings (gear) button in the view title bar
+- How much premium quota do I have left?
+- When does it reset?
+- Am I burning through quota faster than expected?
+- Do I have overage enabled?
+- Which organizations are providing my Copilot access?
 
-> Note: This view shows plan and quota status. It is not a usage report.
+## Highlights
 
----
-
-## Features
-
-- **Sidebar (Copilot Insights)**:
-		- Shows your Copilot plan details
-		- Lists organizations where you have Copilot access
-		- **Local Snapshot History**: Track premium interactions over time
-			- Visual line chart showing usage trends across up to 10 snapshots
-			- "Since last refresh" and "Since yesterday" comparisons
-			- Smart filtering to only record meaningful changes
-			- All data stored locally with clear labeling
-		- Displays quota cards with progress bars and pacing guidance
-		- Status badges (🟢 Healthy, 🟡 Watch, 🔴 Risk) based on quota percentage
-		- Optional **Quota mood** indicator (😌 / 🙂 / 😬 / 😱) to summarize quota risk at a glance
-		- Micro-copy tooltips on critical fields (e.g. Unlimited, Premium interactions, Reset Date)
-		- **Copy Summary to Clipboard** button for exporting insights as Markdown
-		- Auto-refreshes when the view becomes visible
-		- Manual refresh button in the title bar
-
-- **Quota Usage Breakdown**: See a breakdown of premium usage by day and by organization.
-- **Advanced Error Reporting**: More detailed error messages and troubleshooting tips in the sidebar.
-- **Snapshot Export Improvements**: Export quota snapshots with timestamps for better tracking.
-- **Accessibility Enhancements**: Improved keyboard navigation and screen reader support in the sidebar view.
-- **Weighted Prediction**: Estimates daily premium usage, with confidence level and exhaustion forecast.
-- **Burn Rate Analysis**: Detects if usage is accelerating, slowing, or stable, comparing recent and average burn rates.
-- **Visual Trend Chart**: Enhanced local quota history with a line chart and improved snapshot filtering.
-
-
-- **Status bar indicator**:
-		- Compact view of Premium Interactions remaining/total + percentage
-		- **Customizable visual styles**: detailed, progress capsule, circular ring, solid bar, shaded bar, minimalist, or adaptive emoji
-		- **Flexible positioning**: choose left, right, or both sides of the status bar
-		- **Granular display control**: toggle name, numerical quota, and visual indicators independently
-		- Severity icons and status badges based on remaining percentage
-		- Tooltip with status label and reset information
-		- Shows a warning notification once per reset cycle when usage passes 85%
+- Sidebar view with plan details, quota cards, pacing guidance, overage messaging, and organization access.
+- Premium usage trend tracking using locally stored snapshots.
+- Weighted prediction and burn-rate analysis for premium interactions.
+- Status bar indicator with configurable placement, style, and content.
+- One-click export to clipboard as Markdown or raw JSON.
+- Auto-refresh when the Insights view becomes visible, plus manual refresh and settings actions.
+- Fractional precision for premium usage values and percentages so displayed numbers better match Copilot reporting.
 
 ## Screenshots
 
-### Sidebar (Copilot Insights)
+### Sidebar
 
 ![Copilot Insights sidebar](img/screen1.png)
 
-### Sidebar: “Insights” view
+### Additional view
 
-Open the **Copilot Insights** icon in the Activity Bar.
+![Copilot Insights secondary screenshot](img/screen2.png)
 
-**Quotas (top section)**
-- Shows each quota (e.g. Premium Interactions, Chat, Completions)
-- Handles **Unlimited** quotas correctly
-- Progress bar + remaining/used/total for limited quotas
-- Status indicator: 🟢 Healthy (>50%), 🟡 Watch (20-50%), 🔴 Risk (<20%)
-- Pacing helpers:
-	- **To last until reset**: ≤ X/day
-	- **Reset in**: Xd Xh
-	- **Reset Date**
-	- **Projections premium requests before the reset**:
-		- **Weekly average** + **workday/workhour averages**
-		- **Daily Capacity by Model Cost** (0.33x / 1x / 3x)
+## What You Get
 
-**Plan Details**
-- Plan (e.g. Enterprise)
-- Chat enabled
-- Orgs count
+### Sidebar view
 
-**Organizations with Copilot Access**
-- Lists org name + login so you can see where Copilot is enabled for you
+The Copilot Insights activity bar view shows:
 
-**Access Details**
-- Access / SKU
-- Assigned date
-
-**Freshness**
-- “Last fetched: …” shown at the bottom
-- Warning banner if data appears stale (older than 1 hour)
+- Plan summary, chat availability, and organization count.
+- Quotas for Copilot features, including correct handling for unlimited quotas.
+- Remaining, used, total, and percentage information for limited quotas.
+- Health badges or mood indicators based on remaining premium quota.
+- Reset timing and pacing guidance to help spread usage across the billing window.
+- Overage state, over-quota summary, and estimated overage cost when applicable.
+- Local snapshot history with trend chart and delta comparisons.
+- Weighted prediction and burn-rate analysis for premium interactions.
+- Troubleshooting context when the endpoint fails or returns stale data.
 
 ### Status bar
 
-A compact status bar item shows your Premium Interactions remaining at a glance, for example:
+The status bar provides a compact premium quota summary that can be shown on the left, right, or both sides.
 
-- `Copilot: 975/1000 (98%)`
+Available styles:
 
-It also adapts the icon based on remaining percentage and includes a tooltip with reset information.
+- detailed-original
+- progress-capsule
+- circular-ring
+- solid-bar
+- shaded-bar
+- minimalist
+- adaptive-emoji
 
----
+You can independently control whether the label, numeric quota, and visual indicator are shown.
 
-## Export & Sharing
+### Clipboard export
 
-Use the **"Copy Summary to Clipboard"** button at the bottom of the Insights view to export your Copilot information as formatted Markdown. This makes it easy to:
+From the webview you can copy:
 
-- Share quota status with your team
-- Document Copilot usage in reports
-- Track quota trends over time
-- Include in meeting notes or documentation
+- A Markdown summary for sharing in docs, issues, or chat.
+- The raw Copilot payload as formatted JSON.
 
-The exported Markdown includes:
-- Plan details (plan type, chat status, access/SKU)
-- All quota information with status badges
-- Pacing guidance and reset information
-- Organization list
+## Installation
 
----
+Install from the Visual Studio Marketplace:
 
-## Getting started
+- https://marketplace.visualstudio.com/items?itemName=emanuelebartolesi.vscode-copilot-insights
 
-1. Install the extension (Marketplace / `.vsix` / local dev)
-2. Open **Copilot Insights** from the Activity Bar
-3. When prompted, sign in to GitHub using VS Code authentication
-4. Review your plan + quotas
-5. Use the refresh icon in the view title bar if needed
+You can also package and install locally from a VSIX during development.
 
-Tip: Use the gear icon in the view title bar to open Copilot Insights settings.
+## Getting Started
 
----
+1. Install the extension.
+2. Open the Copilot Insights icon in the VS Code activity bar.
+3. Sign in with GitHub if VS Code prompts for authentication.
+4. Review your plan details, quotas, and reset timing.
+5. Use the refresh button in the view title bar whenever you want a fresh snapshot.
 
-## Refresh behavior
+## Commands
 
-- **Automatic:** refreshes whenever the Insights view becomes visible
-- **Manual:** run **Copilot Insights: Refresh** or click the refresh icon in the view title bar
+- Copilot Insights: Refresh
+- Copilot Insights: Open Settings
+- Copilot Insights: Reset to Defaults
 
-## Settings
+## Configuration
 
-Open Settings via the gear icon in the view title bar, or search for "Copilot Insights" in VS Code Settings.
+Search for "Copilot Insights" in VS Code Settings or use the settings button in the view title bar.
 
-### Progress bar mode
+Key settings:
 
-Choose whether quota progress bars represent remaining quota (default) or used quota:
+- `copilotInsights.showMood`: Show a mood indicator instead of the standard health status.
+- `copilotInsights.progressBarMode`: Choose `remaining` or `used` for quota bars.
+- `copilotInsights.statusBarLocation`: Choose `left`, `right`, or `both`.
+- `copilotInsights.statusBarStyle`: Select the status bar visual style.
+- `copilotInsights.statusBar.showName`: Toggle the `Copilot:` label.
+- `copilotInsights.statusBar.showNumericalQuota`: Toggle `remaining/total` display.
+- `copilotInsights.statusBar.showVisualIndicator`: Toggle the bar, ring, emoji, or similar style element.
+
+Example:
 
 ```json
-"copilotInsights.progressBarMode": "remaining"
+{
+  "copilotInsights.progressBarMode": "remaining",
+  "copilotInsights.statusBarLocation": "right",
+  "copilotInsights.statusBarStyle": "detailed-original"
+}
 ```
 
-Valid values: `remaining`, `used`.
+## How Pacing Works
 
----
+Pacing guidance is based on the latest quota snapshot and the time remaining until the quota reset date.
 
-## How pacing is calculated (important)
+The extension calculates:
 
-Pacing is based on:
+- Daily average to stay within quota until reset.
+- Weekly average.
+- Approximate workday and work-hour averages.
+- Daily capacity estimates for common premium model cost multipliers: `0.33x`, `1x`, and `3x`.
 
-- `remaining` (from the quota snapshot)
-- The time between:
-	- the latest snapshot `timestamp_utc` (as-of)
-	- `quota_reset_date_utc` (reset)
+These values are intentionally conservative and designed for quick decision-making rather than formal forecasting.
 
-All displayed pacing values use `floor(...)` (rounded down) so they remain conservative.
+## Data, Privacy, and Storage
 
-### Daily average (all days)
-
-- `allowedPerDay = floor(remaining / daysUntilReset)`
-
-### Weekly average (minimum 1 week)
-
-To avoid misleading weekly values when less than one week remains:
-
-- `weeksRemaining = max(1, floor(daysUntilReset / 7))`
-- `allowedPerWeek = floor(remaining / weeksRemaining)`
-
-### Workday / workhour averages (Mon–Fri, 9–5)
-
-Workdays are approximated proportionally:
-
-- `workingDays ≈ floor(daysUntilReset * 5/7)`
-- `allowedPerWorkDay = floor(remaining / workingDays)` (if `workingDays > 0`)
-
-Working hours assume 8 hours/day (9:00–17:00):
-
-- `totalWorkingHours = workingDays * 8`
-- `allowedPerHour = floor(remaining / totalWorkingHours)` (if `totalWorkingHours > 0`)
-
-> These workday/workhour numbers are approximations (they don’t iterate real calendar weekdays).
-
-### Premium model multipliers (0.33x / 1x / 3x)
-
-Some premium models can “cost” more (or less) per request. The **Daily Capacity by Model Cost** section provides a quick estimate of how many requests/day you can afford at common multipliers:
-
-- `0.33x`: `floor(remaining / 0.33 / daysUntilReset)`
-- `1x`: `floor(remaining / daysUntilReset)`
-- `3x`: `floor(remaining / 3 / daysUntilReset)`
-
----
-
-## Data source & permissions
-
-Copilot Insights uses VS Code’s built-in GitHub authentication and calls:
+Copilot Insights uses VS Code's built-in GitHub authentication provider and requests Copilot account data from:
 
 - `https://api.github.com/copilot_internal/user`
 
-Authentication is handled via VS Code’s GitHub auth provider.
-
----
+The extension stores a small local history of recent premium quota snapshots in VS Code global state so it can show trend and prediction views. No external service is used by this extension to store your quota history.
 
 ## Troubleshooting
 
-### “No quota data available”
+### No data is shown
 
-- Verify you’re signed into the correct GitHub account in VS Code
-- Ensure your account has Copilot enabled
-- Use the refresh command/icon
+- Make sure you are signed into the correct GitHub account in VS Code.
+- Confirm your account has GitHub Copilot access.
+- Trigger a manual refresh from the view title bar or command palette.
 
-### GitHub API errors (403/404)
+### GitHub API returns 403 or 404
 
-- Your account/tenant may not have access to this endpoint
-- The endpoint may change (it is internal)
+- The account, org, or tenant may not expose this Copilot endpoint.
+- The endpoint is internal and may change over time.
 
----
+### Numbers look slightly different from older versions
+
+- Recent versions preserve fractional precision for premium quota values and percentages instead of rounding everything to whole numbers.
 
 ## Development
+
+Requirements:
+
+- VS Code 1.107 or newer
+- Node.js compatible with the repo's toolchain
+
+Run locally:
 
 ```sh
 npm install
 npm run watch
 ```
 
-Press **F5** in VS Code to start an Extension Development Host.
+Then press `F5` in VS Code to launch an Extension Development Host.
 
----
+Useful scripts:
+
+- `npm run compile`
+- `npm run watch`
+- `npm test`
+- `npm run test-vsix`
 
 ## License
 
-Add your preferred license (MIT, Apache-2.0, etc.).
+MIT. See [LICENSE](LICENSE).
