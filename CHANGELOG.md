@@ -1,5 +1,13 @@
 # Change Log
 
+# [3.7.1] - 2026-03-10
+
+### Added
+- **Insights View Icon**: Added an icon for the Copilot Insights sidebar view for better discoverability in the activity UI.
+
+### Changed
+- **Fractional Quota Precision**: Premium quota remaining, used values, and percentages now preserve fractional precision in the sidebar and status bar to better match GitHub Copilot's reported usage.
+
 # [3.7.0] - 2026-03-09
 
 ### Added
