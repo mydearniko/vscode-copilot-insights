@@ -1,5 +1,10 @@
 # Change Log
 
+# [3.7.3] - 2026-03-16
+
+### Changed
+- **Quota Card Ordering**: Quotas in the Insights view are now sorted so **Premium Interactions** appears first for faster visibility of the most important limit.
+
 # [3.7.1] - 2026-03-10
 
 ### Added

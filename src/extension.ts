@@ -1243,7 +1243,13 @@ class CopilotInsightsViewProvider implements vscode.WebviewViewProvider {
     // Generate quotas HTML
     let quotasHtml = "";
     if (quotaSnapshotsArray.length > 0) {
-      quotasHtml = quotaSnapshotsArray
+      // Sort so Premium Interactions appears first
+      const sortedQuotas = [...quotaSnapshotsArray].sort((a, b) => {
+        if (a.quota_id === "premium_interactions") { return -1; }
+        if (b.quota_id === "premium_interactions") { return 1; }
+        return 0;
+      });
+      quotasHtml = sortedQuotas
         .map((quota) => {
           const quotaName = quota.quota_id
             .replace(/_/g, " ")
