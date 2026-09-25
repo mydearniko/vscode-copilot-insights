@@ -2,7 +2,7 @@
   "name": "vscode-copilot-insights",
   "displayName": "Copilot Insights",
   "description": "Understand your GitHub Copilot plan, quotas, and limits at a glance",
-  "version": "3.7.3",
+  "version": "9.9.9",
   "publisher": "emanuelebartolesi",
   "icon": "img/logo.png",
   "sponsor": {
@@ -120,6 +120,38 @@
           "default": 60,
           "minimum": 0,
           "description": "Refresh Copilot quota data automatically every N seconds. Set to 0 to disable background polling."
+        },
+        "copilotInsights.apiRateLimit.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a separate status bar item for the GitHub REST API core rate limit."
+        },
+        "copilotInsights.apiRateLimit.pollingIntervalSeconds": {
+          "type": "integer",
+          "default": 300,
+          "minimum": 0,
+          "description": "Refresh GitHub API rate limit data automatically every N seconds. Set to 0 to disable background polling."
+        },
+        "copilotInsights.apiRateLimit.statusBarLocation": {
+          "type": "string",
+          "default": "opposite",
+          "enum": [
+            "opposite",
+            "follow",
+            "right",
+            "left",
+            "both",
+            "hidden"
+          ],
+          "enumDescriptions": [
+            "Show the API rate limit on the opposite side from the main Copilot status bar to reduce crowding",
+            "Use the same side setting as the main Copilot status bar",
+            "Always show the API rate limit on the right side",
+            "Always show the API rate limit on the left side",
+            "Show the API rate limit on both sides",
+            "Hide the API rate limit status bar without disabling background refresh"
+          ],
+          "description": "Controls where the GitHub API rate limit status bar appears."
         },
         "copilotInsights.statusBarLocation": {
           "type": "string",

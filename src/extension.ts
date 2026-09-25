@@ -39,9 +39,30 @@ interface LocalSnapshot {
   premium_entitlement: number;
 }
 
+interface RateLimitBucket {
+  limit: number;
+  used: number;
+  remaining: number;
+  reset: number;
+}
+
+interface RateLimitResponse {
+  resources?: {
+    core?: Partial<RateLimitBucket>;
+  };
+  rate?: Partial<RateLimitBucket>;
+}
+
+interface ApiRateLimitSnapshot {
+  core: RateLimitBucket;
+  fetchedAt: string;
+}
+
 const SNAPSHOT_HISTORY_KEY = "copilotInsights.snapshotHistory";
 const MAX_SNAPSHOTS = 10;
 const DEFAULT_POLLING_INTERVAL_SECONDS = 60;
+const DEFAULT_API_RATE_LIMIT_POLLING_INTERVAL_SECONDS = 300;
+const API_RATE_LIMIT_EMOJI = "🚦";
 
 export function normalizePollingIntervalSeconds(
   value: number | undefined,
@@ -62,18 +83,60 @@ export function normalizePollingIntervalSeconds(
   return Math.max(1, Math.round(value));
 }
 
+export function calculatePercentage(used: number, limit: number): number {
+  if (!Number.isFinite(used) || !Number.isFinite(limit) || limit <= 0) {
+    return 0;
+  }
+
+  return Number(((used / limit) * 100).toFixed(1));
+}
+
+export function formatMinutesUntilReset(
+  resetUnixSeconds: number,
+  nowMs = Date.now()
+): string {
+  if (!Number.isFinite(resetUnixSeconds)) {
+    return "reset unknown";
+  }
+
+  const diffMs = (resetUnixSeconds * 1000) - nowMs;
+  if (diffMs <= 0) {
+    return "resetting now";
+  }
+
+  const minutesUntilReset = Math.ceil(diffMs / (1000 * 60));
+  return `in ${minutesUntilReset} min`;
+}
+
+export function formatApiRateLimitStatusText(
+  used: number,
+  limit: number,
+  resetUnixSeconds: number,
+  nowMs = Date.now(),
+  emoji = API_RATE_LIMIT_EMOJI
+): string {
+  return `${emoji} ${used}/${limit} (${calculatePercentage(used, limit)}%, ${formatMinutesUntilReset(resetUnixSeconds, nowMs)})`;
+}
+
 class CopilotInsightsViewProvider implements vscode.WebviewViewProvider, vscode.Disposable {
   public static readonly viewType = "copilotInsights.sidebarView";
   private _view?: vscode.WebviewView;
   private _statusBarItem: vscode.StatusBarItem;
   private _bottomStatusBarItem: vscode.StatusBarItem;
+  private _apiRateLimitStatusBarItem: vscode.StatusBarItem;
+  private _apiRateLimitBottomStatusBarItem: vscode.StatusBarItem;
   private _lastData?: CopilotUserData;
+  private _lastApiRateLimitData?: ApiRateLimitSnapshot;
+  private _apiRateLimitConsecutiveFailures = 0;
+  private _apiRateLimitFailureNotified = false;
   private readonly _premiumUsageAlertThreshold = 85;
   private readonly _premiumUsageAlertKey =
     "copilotInsights.premiumUsageAlert.resetDate";
   private _snapshotHistory: LocalSnapshot[] = [];
   private _pollingTimer?: ReturnType<typeof setInterval>;
+  private _apiRateLimitPollingTimer?: ReturnType<typeof setInterval>;
   private _isLoadingCopilotData = false;
+  private _isLoadingApiRateLimitData = false;
 
   constructor(
     private readonly _extensionUri: vscode.Uri,
@@ -96,9 +159,27 @@ class CopilotInsightsViewProvider implements vscode.WebviewViewProvider, vscode.
     this._bottomStatusBarItem.text = "$(loading~spin) Copilot";
     this._bottomStatusBarItem.tooltip = "Loading Copilot insights...";
 
+    this._apiRateLimitStatusBarItem = vscode.window.createStatusBarItem(
+      vscode.StatusBarAlignment.Right,
+      10
+    );
+    this._apiRateLimitStatusBarItem.command = "vscode-copilot-insights.refresh";
+    this._apiRateLimitStatusBarItem.text = `$(loading~spin) ${API_RATE_LIMIT_EMOJI} API`;
+    this._apiRateLimitStatusBarItem.tooltip = "Loading GitHub API rate limit...";
+
+    this._apiRateLimitBottomStatusBarItem = vscode.window.createStatusBarItem(
+      vscode.StatusBarAlignment.Left,
+      -10
+    );
+    this._apiRateLimitBottomStatusBarItem.command = "vscode-copilot-insights.refresh";
+    this._apiRateLimitBottomStatusBarItem.text = `$(loading~spin) ${API_RATE_LIMIT_EMOJI} API`;
+    this._apiRateLimitBottomStatusBarItem.tooltip = "Loading GitHub API rate limit...";
+
     // Initially show both status bars, but visibility will be controlled by configuration
     this._statusBarItem.show();
     this._bottomStatusBarItem.show();
+    this._apiRateLimitStatusBarItem.show();
+    this._apiRateLimitBottomStatusBarItem.show();
 
     // Load snapshot history from storage
     this._snapshotHistory = this._context.globalState.get<LocalSnapshot[]>(SNAPSHOT_HISTORY_KEY, []);
@@ -118,8 +199,19 @@ class CopilotInsightsViewProvider implements vscode.WebviewViewProvider, vscode.
       const affectedPolling = event.affectsConfiguration(
         "copilotInsights.pollingIntervalSeconds"
       );
+      const affectedApiRateLimit = event.affectsConfiguration(
+        "copilotInsights.apiRateLimit.enabled"
+      ) || event.affectsConfiguration(
+        "copilotInsights.apiRateLimit.pollingIntervalSeconds"
+      ) || event.affectsConfiguration(
+        "copilotInsights.apiRateLimit.statusBarLocation"
+      );
 
-      if (event.affectsConfiguration("copilotInsights.statusBarLocation")) {
+      if (
+        event.affectsConfiguration("copilotInsights.statusBarLocation") ||
+        event.affectsConfiguration("copilotInsights.apiRateLimit.enabled") ||
+        event.affectsConfiguration("copilotInsights.apiRateLimit.statusBarLocation")
+      ) {
         this._updateStatusBarVisibility();
       }
 
@@ -132,10 +224,15 @@ class CopilotInsightsViewProvider implements vscode.WebviewViewProvider, vscode.
       if (affectedPolling) {
         this._restartPolling(true);
       }
+
+      if (affectedApiRateLimit) {
+        this._restartApiRateLimitPolling(true);
+      }
     });
     this._context.subscriptions.push(configurationChangeDisposable);
 
     this._restartPolling();
+    this._restartApiRateLimitPolling();
   }
 
   // Getters to access status bar items for disposal
@@ -147,8 +244,17 @@ class CopilotInsightsViewProvider implements vscode.WebviewViewProvider, vscode.
     return this._bottomStatusBarItem;
   }
 
+  get apiRateLimitStatusBarItem(): vscode.StatusBarItem {
+    return this._apiRateLimitStatusBarItem;
+  }
+
+  get apiRateLimitBottomStatusBarItem(): vscode.StatusBarItem {
+    return this._apiRateLimitBottomStatusBarItem;
+  }
+
   public dispose() {
     this._clearPollingTimer();
+    this._clearApiRateLimitPollingTimer();
   }
 
   private _restartPolling(refreshImmediately = false) {
@@ -168,10 +274,38 @@ class CopilotInsightsViewProvider implements vscode.WebviewViewProvider, vscode.
     }
   }
 
+  private _restartApiRateLimitPolling(refreshImmediately = false) {
+    this._clearApiRateLimitPollingTimer();
+
+    if (!this._isApiRateLimitEnabled()) {
+      return;
+    }
+
+    const pollingIntervalSeconds = this._getApiRateLimitPollingIntervalSeconds();
+    if (pollingIntervalSeconds === 0) {
+      return;
+    }
+
+    this._apiRateLimitPollingTimer = setInterval(() => {
+      void this.loadApiRateLimitData({ silent: true });
+    }, pollingIntervalSeconds * 1000);
+
+    if (refreshImmediately) {
+      void this.loadApiRateLimitData({ silent: true });
+    }
+  }
+
   private _clearPollingTimer() {
     if (this._pollingTimer) {
       clearInterval(this._pollingTimer);
       this._pollingTimer = undefined;
+    }
+  }
+
+  private _clearApiRateLimitPollingTimer() {
+    if (this._apiRateLimitPollingTimer) {
+      clearInterval(this._apiRateLimitPollingTimer);
+      this._apiRateLimitPollingTimer = undefined;
     }
   }
 
@@ -189,10 +323,60 @@ class CopilotInsightsViewProvider implements vscode.WebviewViewProvider, vscode.
     );
   }
 
+  private _getApiRateLimitPollingIntervalSeconds(): number {
+    const configuredValue = vscode.workspace
+      .getConfiguration("copilotInsights")
+      .get<number>(
+        "apiRateLimit.pollingIntervalSeconds",
+        DEFAULT_API_RATE_LIMIT_POLLING_INTERVAL_SECONDS
+      );
+
+    return normalizePollingIntervalSeconds(
+      configuredValue,
+      DEFAULT_API_RATE_LIMIT_POLLING_INTERVAL_SECONDS
+    );
+  }
+
+  private _isApiRateLimitEnabled(): boolean {
+    return vscode.workspace
+      .getConfiguration("copilotInsights")
+      .get<boolean>("apiRateLimit.enabled", true);
+  }
+
+  private _getApiRateLimitStatusBarLocation(baseLocation: string): string {
+    const configuredLocation = vscode.workspace
+      .getConfiguration("copilotInsights")
+      .get<string>("apiRateLimit.statusBarLocation", "opposite");
+
+    switch (configuredLocation) {
+      case "follow":
+        return baseLocation;
+      case "opposite":
+        if (baseLocation === "left") {
+          return "right";
+        }
+        if (baseLocation === "both") {
+          return "right";
+        }
+        return "left";
+      case "left":
+      case "right":
+      case "both":
+      case "hidden":
+        return configuredLocation;
+      default:
+        return "left";
+    }
+  }
+
   private _updateStatusBarVisibility() {
     const location = vscode.workspace
       .getConfiguration("copilotInsights")
       .get<string>("statusBarLocation", "right");
+    const showApiRateLimit = this._isApiRateLimitEnabled();
+    const apiLocation = showApiRateLimit
+      ? this._getApiRateLimitStatusBarLocation(location)
+      : "hidden";
 
     // Hide or show status bars based on configuration
     switch (location) {
@@ -211,6 +395,26 @@ class CopilotInsightsViewProvider implements vscode.WebviewViewProvider, vscode.
       default:
         this._statusBarItem.show();
         this._bottomStatusBarItem.hide();
+        break;
+    }
+
+    switch (apiLocation) {
+      case "right":
+        this._apiRateLimitStatusBarItem.show();
+        this._apiRateLimitBottomStatusBarItem.hide();
+        break;
+      case "left":
+        this._apiRateLimitStatusBarItem.hide();
+        this._apiRateLimitBottomStatusBarItem.show();
+        break;
+      case "both":
+        this._apiRateLimitStatusBarItem.show();
+        this._apiRateLimitBottomStatusBarItem.show();
+        break;
+      case "hidden":
+      default:
+        this._apiRateLimitStatusBarItem.hide();
+        this._apiRateLimitBottomStatusBarItem.hide();
         break;
     }
   }
@@ -263,6 +467,14 @@ class CopilotInsightsViewProvider implements vscode.WebviewViewProvider, vscode.
     this.loadCopilotData();
   }
 
+  private async _getGitHubSession(silent: boolean) {
+    return vscode.authentication.getSession(
+      "github",
+      ["user:email"],
+      { createIfNone: !silent }
+    );
+  }
+
   public async loadCopilotData(options: { silent?: boolean } = {}) {
     if (this._isLoadingCopilotData) {
       return;
@@ -272,11 +484,7 @@ class CopilotInsightsViewProvider implements vscode.WebviewViewProvider, vscode.
 
     try {
       // Get GitHub authentication session
-      const session = await vscode.authentication.getSession(
-        "github",
-        ["user:email"],
-        { createIfNone: !options.silent }
-      );
+      const session = await this._getGitHubSession(Boolean(options.silent));
 
       if (!session) {
         if (!options.silent) {
@@ -346,12 +554,109 @@ class CopilotInsightsViewProvider implements vscode.WebviewViewProvider, vscode.
     }
   }
 
+  public async loadApiRateLimitData(options: { silent?: boolean } = {}) {
+    if (this._isLoadingApiRateLimitData || !this._isApiRateLimitEnabled()) {
+      return;
+    }
+
+    this._isLoadingApiRateLimitData = true;
+
+    try {
+      const session = await this._getGitHubSession(Boolean(options.silent));
+
+      if (!session) {
+        if (!options.silent) {
+          this._updateApiRateLimitErrorState("Failed to authenticate with GitHub");
+        }
+        return;
+      }
+
+      const response = await fetch(
+        "https://api.github.com/rate_limit",
+        {
+          headers: {
+            Authorization: `Bearer ${session.accessToken}`,
+            Accept: "application/vnd.github+json",
+            "User-Agent": "VSCode-Copilot-Insights",
+            "X-GitHub-Api-Version": "2022-11-28",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(
+          `GitHub API returned ${response.status}: ${response.statusText}`
+        );
+      }
+
+      const apiData = (await response.json()) as RateLimitResponse;
+      const normalizedCore = this._normalizeRateLimitBucket(
+        apiData.resources?.core ?? apiData.rate
+      );
+
+      if (!normalizedCore) {
+        throw new Error("GitHub API response did not include a core rate limit");
+      }
+
+      this._apiRateLimitConsecutiveFailures = 0;
+      this._apiRateLimitFailureNotified = false;
+      this._updateApiRateLimitStatusBar({
+        core: normalizedCore,
+        fetchedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error occurred";
+
+      if (options.silent) {
+        console.warn(
+          `Copilot Insights API rate limit background refresh failed: ${errorMessage}`
+        );
+        this._handleApiRateLimitFailure(errorMessage);
+        return;
+      }
+
+      this._handleApiRateLimitFailure(errorMessage);
+    } finally {
+      this._isLoadingApiRateLimitData = false;
+    }
+  }
+
   private _normalizeCopilotPlan(plan: unknown): string {
     const value = typeof plan === "string" ? plan.trim() : "";
     if (!value) {
       return "";
     }
     return value.charAt(0).toUpperCase() + value.slice(1);
+  }
+
+  private _normalizeRateLimitBucket(
+    bucket: Partial<RateLimitBucket> | undefined
+  ): RateLimitBucket | undefined {
+    if (!bucket) {
+      return undefined;
+    }
+
+    const limit = Number(bucket.limit);
+    const used = Number(bucket.used);
+    const remaining = Number(bucket.remaining);
+    const reset = Number(bucket.reset);
+
+    if (
+      !Number.isFinite(limit) ||
+      !Number.isFinite(used) ||
+      !Number.isFinite(remaining) ||
+      !Number.isFinite(reset)
+    ) {
+      return undefined;
+    }
+
+    return {
+      limit,
+      used,
+      remaining,
+      reset,
+    };
   }
 
   private _updateWithData(data: CopilotUserData) {
@@ -378,6 +683,72 @@ class CopilotInsightsViewProvider implements vscode.WebviewViewProvider, vscode.
     this._bottomStatusBarItem.text = errorText;
     this._statusBarItem.tooltip = `Error: ${error}`;
     this._bottomStatusBarItem.tooltip = `Error: ${error}`;
+  }
+
+  private _updateApiRateLimitErrorState(error: string) {
+    this._updateStatusBarVisibility();
+
+    const errorText = `${API_RATE_LIMIT_EMOJI} --/-- (--%)`;
+    const tooltip = `GitHub API rate limit error: ${error}`;
+
+    this._apiRateLimitStatusBarItem.text = errorText;
+    this._apiRateLimitBottomStatusBarItem.text = errorText;
+    this._apiRateLimitStatusBarItem.tooltip = tooltip;
+    this._apiRateLimitBottomStatusBarItem.tooltip = tooltip;
+  }
+
+  private _handleApiRateLimitFailure(error: string) {
+    this._apiRateLimitConsecutiveFailures += 1;
+
+    if (this._lastApiRateLimitData) {
+      const staleTooltip = new vscode.MarkdownString(
+        `**GitHub REST API Rate Limit**\n\n` +
+        `• Status: **Showing last successful result**\n` +
+        `• Consecutive refresh failures: **${this._apiRateLimitConsecutiveFailures}**\n` +
+        `• Latest error: **${error}**\n` +
+        `• Last good fetch: **${this._formatDateTime(this._lastApiRateLimitData.fetchedAt)}**\n\n` +
+        `_Will refresh automatically on the next successful poll_`
+      );
+
+      this._apiRateLimitStatusBarItem.tooltip = staleTooltip;
+      this._apiRateLimitBottomStatusBarItem.tooltip = staleTooltip;
+    } else if (this._apiRateLimitConsecutiveFailures >= 3) {
+      this._updateApiRateLimitErrorState(error);
+    }
+
+    if (this._apiRateLimitConsecutiveFailures >= 3 && !this._apiRateLimitFailureNotified) {
+      this._apiRateLimitFailureNotified = true;
+      vscode.window.showErrorMessage(
+        `Failed to load GitHub API rate limit: ${error}`
+      );
+    }
+  }
+
+  private _updateApiRateLimitStatusBar(data: ApiRateLimitSnapshot) {
+    this._lastApiRateLimitData = data;
+    this._updateStatusBarVisibility();
+
+    const text = formatApiRateLimitStatusText(
+      data.core.used,
+      data.core.limit,
+      data.core.reset
+    );
+    const percentUsed = calculatePercentage(data.core.used, data.core.limit);
+    const resetAt = new Date(data.core.reset * 1000);
+    const tooltip = new vscode.MarkdownString(
+      `**GitHub REST API Rate Limit**\n\n` +
+      `• Bucket: **core**\n` +
+      `• Used: **${data.core.used}** of **${data.core.limit}** (${percentUsed}%)\n` +
+      `• Remaining: **${data.core.remaining}**\n` +
+      `• Resets: **${this._formatDateTime(resetAt.toISOString())}**\n` +
+      `• Last fetched: **${this._formatDateTime(data.fetchedAt)}**\n\n` +
+      `_Click to refresh_`
+    );
+
+    this._apiRateLimitStatusBarItem.text = text;
+    this._apiRateLimitBottomStatusBarItem.text = text;
+    this._apiRateLimitStatusBarItem.tooltip = tooltip;
+    this._apiRateLimitBottomStatusBarItem.tooltip = tooltip;
   }
 
   private _updateStatusBar(data: CopilotUserData) {
@@ -2254,18 +2625,31 @@ export function activate(context: vscode.ExtensionContext) {
     config.update("statusBar.showNumericalQuota", true, vscode.ConfigurationTarget.Global);
     config.update("statusBar.showVisualIndicator", true, vscode.ConfigurationTarget.Global);
     config.update("statusBarStyle", "detailed-original", vscode.ConfigurationTarget.Global);
+    config.update("apiRateLimit.enabled", true, vscode.ConfigurationTarget.Global);
+    config.update(
+      "apiRateLimit.pollingIntervalSeconds",
+      DEFAULT_API_RATE_LIMIT_POLLING_INTERVAL_SECONDS,
+      vscode.ConfigurationTarget.Global
+    );
+    config.update(
+      "apiRateLimit.statusBarLocation",
+      "opposite",
+      vscode.ConfigurationTarget.Global
+    );
     // Mark as initialized
     context.globalState.update(INIT_KEY, true);
   }
 
   // Trigger initial data load to populate status bars
   provider.loadCopilotData();
+  provider.loadApiRateLimitData();
 
   // Optional: Register command to refresh the view
   const refreshCommand = vscode.commands.registerCommand(
     "vscode-copilot-insights.refresh",
     () => {
       provider.loadCopilotData();
+      provider.loadApiRateLimitData();
     }
   );
 
@@ -2304,10 +2688,22 @@ export function activate(context: vscode.ExtensionContext) {
           DEFAULT_POLLING_INTERVAL_SECONDS,
           vscode.ConfigurationTarget.Global
         );
+        await config.update("apiRateLimit.enabled", true, vscode.ConfigurationTarget.Global);
+        await config.update(
+          "apiRateLimit.pollingIntervalSeconds",
+          DEFAULT_API_RATE_LIMIT_POLLING_INTERVAL_SECONDS,
+          vscode.ConfigurationTarget.Global
+        );
+        await config.update(
+          "apiRateLimit.statusBarLocation",
+          "opposite",
+          vscode.ConfigurationTarget.Global
+        );
 
         vscode.window.showInformationMessage("Copilot Insights settings reset to defaults.");
         // Refresh the display
         provider.loadCopilotData();
+        provider.loadApiRateLimitData();
       }
     }
   );
@@ -2315,7 +2711,12 @@ export function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(refreshCommand, openSettingsCommand, resetDefaultsCommand);
 
   // Add the status bar items to subscriptions so they can be disposed properly
-  context.subscriptions.push(provider.statusBarItem, provider.bottomStatusBarItem);
+  context.subscriptions.push(
+    provider.statusBarItem,
+    provider.bottomStatusBarItem,
+    provider.apiRateLimitStatusBarItem,
+    provider.apiRateLimitBottomStatusBarItem
+  );
 }
 
 // This method is called when your extension is deactivated
